@@ -28,33 +28,51 @@ const CATEGORY_MAP: Record<string, string> = {
   dessert: '手工甜點'
 };
 
+// Safe LocalStorage Helper
+const getSafeLocalStorage = <T,>(key: string, fallback: T): T => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch (e) {
+    console.error(`Error parsing localStorage key "${key}":`, e);
+    return fallback;
+  }
+};
+
 export const Tools: React.FC<ToolsProps> = ({ activeTab, isGuest = false }) => {
   // ==========================================
   // 1. Persistent State (LocalStorage)
   // ==========================================
   
   // Inventory Data
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
-    const saved = localStorage.getItem('woosh_inventory');
-    return saved ? JSON.parse(saved) : INVENTORY_DATA;
-  });
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => 
+    getSafeLocalStorage('woosh_inventory', INVENTORY_DATA)
+  );
 
   // KPI Goals
-  const [kpiRevenue, setKpiRevenue] = useState(() => Number(localStorage.getItem('woosh_kpi_revenue')) || 3800000);
-  const [kpiCustomers, setKpiCustomers] = useState(() => Number(localStorage.getItem('woosh_kpi_customers')) || 12000);
-  const [kpiTicket, setKpiTicket] = useState(() => Number(localStorage.getItem('woosh_kpi_ticket')) || 350);
+  const [kpiRevenue, setKpiRevenue] = useState(() => {
+    if (typeof window === 'undefined') return 3800000;
+    return Number(localStorage.getItem('woosh_kpi_revenue')) || 3800000;
+  });
+  const [kpiCustomers, setKpiCustomers] = useState(() => {
+    if (typeof window === 'undefined') return 12000;
+    return Number(localStorage.getItem('woosh_kpi_customers')) || 12000;
+  });
+  const [kpiTicket, setKpiTicket] = useState(() => {
+    if (typeof window === 'undefined') return 350;
+    return Number(localStorage.getItem('woosh_kpi_ticket')) || 350;
+  });
 
   // Operation History (Saved generations)
-  const [history, setHistory] = useState<HistoryItem[]>(() => {
-    const saved = localStorage.getItem('woosh_history');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [history, setHistory] = useState<HistoryItem[]>(() => 
+    getSafeLocalStorage('woosh_history', [])
+  );
 
-  // Live Orders (Shared between Guest and Owner via LocalStorage simulation)
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('woosh_orders');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Live Orders
+  const [orders, setOrders] = useState<Order[]>(() => 
+    getSafeLocalStorage('woosh_orders', [])
+  );
 
   // ==========================================
   // 2. Transient State (Current Session)
@@ -77,8 +95,10 @@ export const Tools: React.FC<ToolsProps> = ({ activeTab, isGuest = false }) => {
   const [csvAnalysis, setCsvAnalysis] = useState('');
   const [esgTips, setEsgTips] = useState('');
 
-  // Guest Menu State
+  // Menu Category State (Shared for Guest and Owner view simplicity)
   const [menuCategory, setMenuCategory] = useState<string>('all');
+  
+  // Cart State
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [showCartModal, setShowCartModal] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -87,28 +107,30 @@ export const Tools: React.FC<ToolsProps> = ({ activeTab, isGuest = false }) => {
   // 3. Effects for Persistence
   // ==========================================
   useEffect(() => {
-    localStorage.setItem('woosh_inventory', JSON.stringify(inventory));
+    if (typeof window !== 'undefined') localStorage.setItem('woosh_inventory', JSON.stringify(inventory));
   }, [inventory]);
 
   useEffect(() => {
-    localStorage.setItem('woosh_kpi_revenue', String(kpiRevenue));
-    localStorage.setItem('woosh_kpi_customers', String(kpiCustomers));
-    localStorage.setItem('woosh_kpi_ticket', String(kpiTicket));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('woosh_kpi_revenue', String(kpiRevenue));
+      localStorage.setItem('woosh_kpi_customers', String(kpiCustomers));
+      localStorage.setItem('woosh_kpi_ticket', String(kpiTicket));
+    }
   }, [kpiRevenue, kpiCustomers, kpiTicket]);
 
   useEffect(() => {
-    localStorage.setItem('woosh_history', JSON.stringify(history));
+    if (typeof window !== 'undefined') localStorage.setItem('woosh_history', JSON.stringify(history));
   }, [history]);
 
   useEffect(() => {
-    localStorage.setItem('woosh_orders', JSON.stringify(orders));
+    if (typeof window !== 'undefined') localStorage.setItem('woosh_orders', JSON.stringify(orders));
   }, [orders]);
 
   // ==========================================
   // 4. Helper Functions
   // ==========================================
 
-  // History Management - using 'unknown' instead of 'any' for strictness
+  // History Management
   const addToHistory = (type: HistoryItem['type'], data: unknown, summary: string) => {
     const newItem: HistoryItem = {
       id: Date.now().toString(),
@@ -130,7 +152,6 @@ export const Tools: React.FC<ToolsProps> = ({ activeTab, isGuest = false }) => {
     if (item.type === 'social') setSocialResult(item.data as string);
     if (item.type === 'feedback') setReviewAnalysis(item.data as FeedbackAnalysis);
     if (item.type === 'product') {
-       // Type assertion for the complex object
        const pData = item.data as { result: ProductRecipe, image: string };
        setProductResult(pData.result);
        setProductImage(pData.image);
@@ -278,7 +299,6 @@ export const Tools: React.FC<ToolsProps> = ({ activeTab, isGuest = false }) => {
   // Auto-Fetch Daily Focus Logic
   useEffect(() => {
     if (activeTab === 'daily' && !isGuest && !dailyData && !loading) {
-       // Try to find today's data in history first to save API tokens
        const todayStr = new Date().toLocaleDateString('zh-TW');
        const recentDaily = history.find(h => h.type === 'daily' && new Date(h.timestamp).toLocaleDateString('zh-TW') === todayStr);
        
@@ -956,10 +976,10 @@ export const Tools: React.FC<ToolsProps> = ({ activeTab, isGuest = false }) => {
                 
                 {renderHistoryList('csv')}
 
-                {/* Updated Menu Table with Category Tabs (Owner View) */}
+                {/* Owner Menu View: Tabs + Table (Updated) */}
                 {activeTab === 'menu' && (
                     <div className="space-y-6 mt-6">
-                        {/* 1. Filter Buttons */}
+                        {/* 1. Category Tabs */}
                         <div className="flex flex-wrap gap-2 mb-6">
                             {['all', 'coffee', 'milk_tea', 'food', 'dessert'].map(cat => (
                                 <button
