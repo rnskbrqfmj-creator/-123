@@ -21,7 +21,7 @@ interface ToolsProps {
 }
 
 const CATEGORY_MAP: Record<string, string> = {
-  all: '全部',
+  all: '全部品項',
   coffee: '手沖咖啡',
   milk_tea: '特調飲品',
   food: '輕食餐點',
@@ -956,29 +956,67 @@ export const Tools: React.FC<ToolsProps> = ({ activeTab, isGuest = false }) => {
                 
                 {renderHistoryList('csv')}
 
-                {/* Simple Menu Table (Owner View) */}
+                {/* Updated Menu Table with Category Tabs (Owner View) */}
                 {activeTab === 'menu' && (
-                    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 mt-6 overflow-x-auto">
-                        <table className="w-full text-left min-w-[500px]">
-                            <thead className="bg-[#78350f] text-white">
-                                <tr>
-                                    <th className="p-4 whitespace-nowrap">品項</th>
-                                    <th className="p-4 whitespace-nowrap">類別</th>
-                                    <th className="p-4 whitespace-nowrap">價格</th>
-                                    <th className="p-4 whitespace-nowrap">利潤率</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {MENU_DATA.map((item, i) => (
-                                    <tr key={i} className="hover:bg-gray-50">
-                                        <td className="p-4">{item.name}</td>
-                                        <td className="p-4 text-xs text-gray-500 uppercase">{item.category}</td>
-                                        <td className="p-4 font-mono">${item.price}</td>
-                                        <td className="p-4"><span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">{item.margin}</span></td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="space-y-6 mt-6">
+                        {/* 1. Filter Buttons */}
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            {['all', 'coffee', 'milk_tea', 'food', 'dessert'].map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setMenuCategory(cat)}
+                                    className={`px-4 py-2 rounded-full text-sm font-bold transition-all border ${
+                                        menuCategory === cat
+                                            ? 'bg-[#3f6212] text-white border-[#3f6212]'
+                                            : 'bg-white text-[#3f6212] border-[#3f6212]/30 hover:bg-[#ecfccb]'
+                                    }`}
+                                >
+                                    {CATEGORY_MAP[cat]}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* 2. Filtered Table */}
+                        <div className="animate-fade-in">
+                            <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 overflow-x-auto">
+                                <table className="w-full text-left min-w-[500px]">
+                                    <thead className="bg-[#fdfbf7] text-gray-500 border-b border-gray-100">
+                                        <tr>
+                                            <th className="p-4 whitespace-nowrap text-sm">品項</th>
+                                            <th className="p-4 whitespace-nowrap text-sm">價格</th>
+                                            <th className="p-4 whitespace-nowrap text-sm">利潤等級</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {(menuCategory === 'all' 
+                                            ? MENU_DATA 
+                                            : MENU_DATA.filter(i => i.category === menuCategory)
+                                        ).map((item, i) => (
+                                            <tr key={i} className="hover:bg-gray-50 transition-colors">
+                                                <td className="p-4 font-medium text-[#78350f]">
+                                                    {item.name}
+                                                    <span className="block text-xs text-gray-400 mt-1">{CATEGORY_MAP[item.category]}</span>
+                                                </td>
+                                                <td className="p-4 font-mono text-gray-600">${item.price}</td>
+                                                <td className="p-4">
+                                                    <span className={`text-xs px-2 py-1 rounded font-bold ${
+                                                        item.margin === 'high' ? 'bg-green-100 text-green-800' :
+                                                        item.margin === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                                        'bg-red-100 text-red-800'
+                                                    }`}>
+                                                        {item.margin === 'high' ? '高毛利 (High)' : 
+                                                         item.margin === 'medium' ? '中毛利 (Med)' : '低毛利 (Low)'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {(menuCategory !== 'all' && MENU_DATA.filter(i => i.category === menuCategory).length === 0) && (
+                                    <div className="p-8 text-center text-gray-400">此類別尚無資料</div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
                 </>
